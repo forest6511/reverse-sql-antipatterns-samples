@@ -1,0 +1,66 @@
+# 逆引きSQLアンチパターン — 実機EXPLAIN 再現環境
+#
+# PostgreSQL 18 / MySQL 8.4 を同時に起動し、本書の全アンチパターンの
+# EXPLAIN(ANALYZE, BUFFERS) を同一マシンで再現するための compose 定義。
+#
+#   docker compose up -d          # 両DBを起動
+#   docker compose exec pg psql   # PostgreSQL 18 に接続
+#   docker compose exec mysql mysql -uroot -proot app  # MySQL 8.4 に接続
+#
+# 初回起動時に db/init/postgres, db/init/mysql の *.sql が自動実行され、
+# 各章のアンチパターン再現に使う共通スキーマとシードデータが投入される。
+
+services:
+  pg:
+    image: postgres:18
+    container_name: rsa-pg
+    environment:
+      POSTGRES_USER: app
+      POSTGRES_PASSWORD: app
+      POSTGRES_DB: app
+      # 実行計画を安定させるため、並列度を固定（本書の EXPLAIN と再現一致させる）
+      # 個別の章で必要なら psql 内で SET する。
+      TZ: Asia/Tokyo
+    ports:
+      - "55432:5432"
+    volumes:
+      - ./db/init/postgres:/docker-entrypoint-initdb.d:ro
+    # ログを見やすくするための最小設定。auto_explain は 07 章で有効化。
+    command:
+      - postgres
+      - -c
+      - shared_buffers=256MB
+      - -c
+      - work_mem=16MB
+      - -c
+      - track_io_timing=on
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U app -d app"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  mysql:
+    image: mysql:8.4
+    container_name: rsa-mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: app
+      MYSQL_USER: app
+      MYSQL_PASSWORD: app
+      TZ: Asia/Tokyo
+    ports:
+      - "53306:3306"
+    volumes:
+      - ./db/init/mysql:/docker-entrypoint-initdb.d:ro
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_0900_ai_ci
+      - --innodb-buffer-pool-size=256M
+      # MySQL 8.4 では caching_sha2_password が既定（default-authentication-plugin
+      # オプションは 8.4 で廃止され、指定すると起動に失敗する）。
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -uroot -proot --silent"]
+      interval: 3s
+      timeout: 3s
+      retries: 30

@@ -1,0 +1,7 @@
+# Docker / OS
+.DS_Store
+*.log
+
+# EXPLAIN 出力の一時保存（本には手で貼るので repo には残さない）
+*.out
+tmp/

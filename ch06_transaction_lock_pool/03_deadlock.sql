@@ -1,0 +1,21 @@
+-- 第6章 3節: デッドロック（ロック順序の不一致）／PostgreSQL 18
+-- accounts テーブルは 02_lost_update_balance.sql で作成済み想定
+-- INSERT INTO accounts VALUES (1, 1000), (2, 1000);
+
+-- ===== アンチ: A は 1→2、B は 2→1 の順にロック =====
+-- セッションA                        セッションB
+-- BEGIN;
+-- UPDATE accounts SET balance=balance-100 WHERE id=1;  -- A: 口座1ロック
+--                                    BEGIN;
+--                                    UPDATE accounts SET balance=balance-100 WHERE id=2; -- B: 口座2ロック
+-- UPDATE accounts SET balance=balance+100 WHERE id=2;  -- A: 口座2待ち（B保持）
+--                                    UPDATE accounts SET balance=balance+100 WHERE id=1; -- B: 口座1待ち→デッドロック
+-- => A で ERROR: deadlock detected（Aロールバック、B完了）
+--    MySQL InnoDB では ERROR 1213 (40001) Deadlock found
+
+-- ===== 正: 全 tx で id 昇順にロック =====
+-- BEGIN;
+-- UPDATE accounts SET balance=balance-100 WHERE id=1;  -- 先に小さいid
+-- UPDATE accounts SET balance=balance+100 WHERE id=2;
+-- COMMIT;
+-- => 相互待ちが起きない（+ アプリ側で 40001 リトライを用意）
