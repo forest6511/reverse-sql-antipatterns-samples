@@ -7,6 +7,8 @@
 5ステップで書かれています。このリポジトリは、その **EXPLAIN(ANALYZE, BUFFERS) を
 読者が自分のマシンで再現する**ための Docker 環境と SQL を提供します。
 
+Kindle 版: [逆引きSQLアンチパターン](https://www.amazon.co.jp/dp/B0H8SBZYMS)
+
 - PostgreSQL **18**
 - MySQL **8.4**
 
